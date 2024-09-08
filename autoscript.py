@@ -36,6 +36,7 @@ def get_spotify_client():
     ))
     return sp
 
+
 def fetch_recently_played(sp, limit=50):
     """Fetch recently played tracks from Spotify."""
     results = sp.current_user_recently_played(limit=limit)
@@ -60,14 +61,35 @@ def connect_mysql():
             print(err)
         exit(1)
 
-def insert_tracks_recent(cnx, played_track):
-    """Insert a track into the tracks_recent table in MySQL after checking for duplicates."""
+def track_exists(cnx, track_id, played_at):
+    """Check if a track with the same track_id and played_at timestamp already exists in the database."""
     cursor = cnx.cursor()
+    query = """
+        SELECT COUNT(*) FROM tracks_recent
+        WHERE id = %s AND played_at = %s;
+    """
+    cursor.execute(query, (track_id, played_at))
+    (count,) = cursor.fetchone()
+    cursor.close()
+    return count > 0  # Return True if the track already exists, False otherwise
+
+def insert_tracks_recent(cnx, played_track):
+    """Insert a track into the tracks_recent table in MySQL if it doesn't already exist."""
+    cursor = cnx.cursor()
+
+    # Extract track details from the played_track dictionary
     id = played_track['track']['id']
     track_name = played_track['track']['name']
     artist = ", ".join([artist['name'] for artist in played_track['track']['artists']])
     album = played_track['track']['album']['name']
     played_at = datetime.strptime(played_track['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
+
+    # Check if the track already exists in the database
+    if track_exists(cnx, id, played_at):
+        print(f"Skipping {track_name} by {artist} played at {played_at}, already exists.")
+        return
+
+    # Insert the track if it doesn't already exist
     add_track = ("""
         INSERT IGNORE INTO tracks_recent (id, track_name, artist, album, played_at)
         VALUES (%s, %s, %s, %s, %s)
@@ -76,11 +98,13 @@ def insert_tracks_recent(cnx, played_track):
 
     try:
         cursor.execute(add_track, data_track)
-        cnx.commit()
+        cnx.commit()  # Commit the transaction
     except mysql.connector.Error as err:
         print(f"Error: {err}")
-        cnx.rollback()
-    cursor.close()
+        cnx.rollback()  # Roll back in case of an error
+    finally:
+        cursor.close()  # Ensure the cursor is closed
+
 
 
 def main():
