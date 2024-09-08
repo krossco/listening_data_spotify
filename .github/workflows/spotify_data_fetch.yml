@@ -35,5 +35,5 @@ jobs:
         MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
         MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       run: |
-        python fetch_spotify_data.py
+        python autoscript.py
 
