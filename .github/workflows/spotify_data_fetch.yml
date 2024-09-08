@@ -23,6 +23,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install spotipy mysql-connector-python python-dotenv
 
+    - name: Check Environment Variables
+      run: |
+        echo "SPOTIFY_CLIENT_ID: $SPOTIFY_CLIENT_ID"
+        echo "SPOTIFY_REDIRECT_URI: $SPOTIFY_REDIRECT_URI"
+      env:
+        SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        SPOTIFY_REDIRECT_URI: ${{ secrets.SPOTIFY_REDIRECT_URI }}
+
     - name: Run Script
       env:
         SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
