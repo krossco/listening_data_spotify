@@ -1,4 +1,5 @@
 # .gitignore
 .env
 myenv/
-.cache
+.cache-agent_kay
+
