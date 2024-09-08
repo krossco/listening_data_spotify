@@ -60,26 +60,28 @@ def connect_mysql():
             print(err)
         exit(1)
 
-def insert_recently_played(cnx, played_track):
-    """Insert a track into the recently_played table in MySQL."""
+def insert_tracks_recent(cnx, played_track):
+    """Insert a track into the tracks_recent table in MySQL after checking for duplicates."""
     cursor = cnx.cursor()
-    add_track = ("INSERT INTO tracks_recent "
-                "(id, track_name, artist_name, played_at) "
-                "VALUES (%s, %s, %s, %s)")
     id = played_track['track']['id']
     track_name = played_track['track']['name']
-    artist_name = ", ".join([artist['name'] for artist in played_track['track']['artists']])
+    artist = ", ".join([artist['name'] for artist in played_track['track']['artists']])
+    album = played_track['track']['album']['name']
     played_at = datetime.strptime(played_track['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
-    data_track = (id, track_name, artist_name, played_at)
-    
+    add_track = ("""
+        INSERT IGNORE INTO tracks_recent (id, track_name, artist, album, played_at)
+        VALUES (%s, %s, %s, %s, %s)
+    """)
+    data_track = (id, track_name, artist, album, played_at)
+
     try:
         cursor.execute(add_track, data_track)
         cnx.commit()
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         cnx.rollback()
-    finally:
-        cursor.close()
+    cursor.close()
+
 
 def main():
     """Main function to fetch and store recently played tracks."""
@@ -93,7 +95,7 @@ def main():
     cnx = connect_mysql()
     
     for track in recent_tracks:
-        insert_recently_played(cnx, track)
+        insert_tracks_recent(cnx, track)
     
     cnx.close()
     print("Data fetched and stored successfully.")
