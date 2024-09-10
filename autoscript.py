@@ -26,23 +26,23 @@ MYSQL_DATABASE = os.getenv('MYSQL_DATABASE')
 SCOPE = 'user-read-recently-played'
 
 def get_spotify_client():
-    """Get the Spotify client using SpotifyOAuth."""
+    # Fetch spotify creds to authorise connection
     sp = Spotify(auth_manager=SpotifyOAuth(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
         scope=SCOPE,
-        cache_path=".cache-" + USERNAME  # cache path manages the refresh token automatically
+        cache_path=".cache-" + USERNAME  
     ))
     return sp
 
 def fetch_recently_played(sp, limit=50):
-    """Fetch recently played tracks from Spotify."""
+    # Fetching recently played spotify songs - limited to 50 due to Spotify API
     results = sp.current_user_recently_played(limit=limit)
     return results['items']
 
 def connect_mysql():
-    """Establish a connection to the MySQL database."""
+    # connect to mysql database
     try:
         cnx = mysql.connector.connect(
             user=MYSQL_USER,
@@ -61,10 +61,11 @@ def connect_mysql():
         exit(1)
 
 def insert_recently_played(cnx, played_track):
-    """Insert a track into the recently_played table in MySQL."""
+    # Inserts the tracks into the database in mysql
+    # mysql must be open for it to work 
     cursor = cnx.cursor()
     add_track = ("INSERT INTO tracks_recent "
-                "(id, track_name, artist_name, played_at) "
+                "(id, track_name, artist, played_at) "
                 "VALUES (%s, %s, %s, %s)")
     id = played_track['track']['id']
     track_name = played_track['track']['name']
@@ -81,8 +82,8 @@ def insert_recently_played(cnx, played_track):
     finally:
         cursor.close()
 
+
 def main():
-    """Main function to fetch and store recently played tracks."""
     sp = get_spotify_client()
     recent_tracks = fetch_recently_played(sp)
     
