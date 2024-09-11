@@ -32,7 +32,7 @@ def get_spotify_client():
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
         scope=SCOPE,
-        cache_path=".cache-" + USERNAME  
+        cache_path=".cache-" + USERNAME
     ))
     return sp
 
