@@ -61,17 +61,14 @@ def connect_mysql():
             print(err)
         exit(1)
 
-def track_exists(cnx, track_id, played_at):
-    """Check if a track with the same track_id and played_at timestamp already exists in the database."""
+def track_exists(cnx, played_at):
     cursor = cnx.cursor()
-    query = """
-        SELECT COUNT(*) FROM tracks_recent
-        WHERE id = %s AND played_at = %s;
-    """
-    cursor.execute(query, (track_id, played_at))
-    (count,) = cursor.fetchone()
+    query = "SELECT 1 FROM tracks_recent WHERE played_at = %s"
+    cursor.execute(query, (played_at,))
+    result = cursor.fetchone()
     cursor.close()
-    return count > 0  # Return True if the track already exists, False otherwise
+    return result is not None
+
 
 def insert_tracks_recent(cnx, played_track):
     """Insert a track into the tracks_recent table in MySQL if it doesn't already exist."""
@@ -85,9 +82,10 @@ def insert_tracks_recent(cnx, played_track):
     played_at = datetime.strptime(played_track['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
 
     # Check if the track already exists in the database
-    if track_exists(cnx, id, played_at):
-        print(f"Skipping {track_name} by {artist} played at {played_at}, already exists.")
+    if track_exists(cnx, played_at):
+        print(f"Skipping track played at {played_at}, already exists.")
         return
+
 
     # Insert the track if it doesn't already exist
     add_track = ("""
