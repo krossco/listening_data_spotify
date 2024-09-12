@@ -7,8 +7,7 @@ CREATE TABLE tracks_recent (
   track_name VARCHAR(255),
   artist VARCHAR(255),
   album VARCHAR(255),
-  played_at DATETIME,
-  UNIQUE(id, played_at)
+  played_at DATETIME UNIQUE
 );
 
 SELECT * from tracks_recent
