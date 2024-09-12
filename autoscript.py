@@ -6,9 +6,13 @@ from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 from datetime import datetime
+import logging
 
 # Load environment variables
 load_dotenv()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Spotify credentials
 CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
@@ -26,21 +30,35 @@ MYSQL_DATABASE = os.getenv('MYSQL_DATABASE')
 SCOPE = 'user-read-recently-played'
 
 def get_spotify_client():
-    # Fetch spotify creds to authorise connection
-    sp = Spotify(auth_manager=SpotifyOAuth(
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        redirect_uri=REDIRECT_URI,
-        scope=SCOPE,
-        cache_path=".cache-" + USERNAME
-    ))
-    return sp
-
+    """Create a Spotify client."""
+    try:
+        sp = Spotify(auth_manager=SpotifyOAuth(
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            redirect_uri=REDIRECT_URI,
+            scope=SCOPE,
+            cache_path=".cache-" + USERNAME
+        ))
+        return sp
+    except Exception as e:
+        logging.error(f"Failed to authenticate Spotify client: {e}")
+        exit(1)
 
 def fetch_recently_played(sp, limit=50):
-    # Fetching recently played spotify songs - limited to 50 due to Spotify API
+    """Fetch all recently played Spotify songs using pagination."""
+    all_tracks = []
     results = sp.current_user_recently_played(limit=limit)
-    return results['items']
+    all_tracks.extend(results['items'])
+
+    # Fetch additional tracks if there are more
+    while results['next']:
+        results = sp.next(results)
+        all_tracks.extend(results['items'])
+        
+    all_tracks.sort(key=lambda x: x['played_at'])  # Sort by played_at in ascending order
+
+
+    return all_tracks
 
 def connect_mysql():
     # connect to mysql database
@@ -62,13 +80,13 @@ def connect_mysql():
         exit(1)
 
 def track_exists(cnx, played_at):
+    """Check if the track already exists in the database based on the 'played_at' timestamp."""
     cursor = cnx.cursor()
     query = "SELECT 1 FROM tracks_recent WHERE played_at = %s"
     cursor.execute(query, (played_at,))
     result = cursor.fetchone()
     cursor.close()
     return result is not None
-
 
 def insert_tracks_recent(cnx, played_track):
     """Insert a track into the tracks_recent table in MySQL if it doesn't already exist."""
@@ -83,9 +101,8 @@ def insert_tracks_recent(cnx, played_track):
 
     # Check if the track already exists in the database
     if track_exists(cnx, played_at):
-        print(f"Skipping track played at {played_at}, already exists.")
+        logging.info(f"Skipping track played at {played_at}, already exists.")
         return
-
 
     # Insert the track if it doesn't already exist
     add_track = ("""
@@ -97,6 +114,7 @@ def insert_tracks_recent(cnx, played_track):
     try:
         cursor.execute(add_track, data_track)
         cnx.commit()  # Commit the transaction
+        # print(f"Inserted track: {track_name}, played at {played_at}")
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         cnx.rollback()  # Roll back in case of an error
@@ -108,7 +126,7 @@ def main():
     recent_tracks = fetch_recently_played(sp)
     
     if not recent_tracks:
-        print("No recent tracks found.")
+        logging.info("No recent tracks found.")
         return
     
     cnx = connect_mysql()
@@ -117,7 +135,7 @@ def main():
         insert_tracks_recent(cnx, track)
     
     cnx.close()
-    print("Data fetched and stored successfully.")
+    logging.info("Data fetched and stored successfully.")
 
 if __name__ == "__main__":
     main()
